@@ -3,6 +3,13 @@ server:
 spring:
   application:
     name: rewards-api
+  # Disable docker compose plugin and database initialization by default
+  docker:
+    compose:
+      lifecycle-management: none
+  sql:
+    init:
+      mode: never
   profiles:
     group:
       dev: local
@@ -13,10 +20,17 @@ spring:
   config:
     activate:
       on-profile: local
+  docker:
+    compose:
+      lifecycle-management: start-and-stop
   r2dbc:
     url: ${DB_URL:r2dbc:postgresql://localhost:5432/postgres}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:password}
+  sql:
+    init:
+      mode: always
+      platform: postgres # Needed to inform Spring to look at schema-postgres.sql
 ---
 # Global test configuration (all tests)
 spring:
@@ -33,3 +47,7 @@ spring:
     url: r2dbc:h2:mem:///db
     name: sa
     password:
+  sql:
+    init:
+      mode: always
+      platform: h2 # Needed to inform Spring to look at schema-h2.sql
