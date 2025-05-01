@@ -8,8 +8,8 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles({"unit-test"})
 class RewardsApiApplicationTests {
 
-	@Test
-	void contextLoads() {
-	}
+  @Test
+  void contextLoads() {
+  }
 
 }
