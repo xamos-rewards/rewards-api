@@ -1,1 +1,35 @@
-spring.application.name=rewards-api
+server:
+  port: 10000
+spring:
+  application:
+    name: rewards-api
+  profiles:
+    group:
+      dev: local
+      unit-test: test,unit
+      integration-test: test,integration
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  r2dbc:
+    url: ${DB_URL:r2dbc:postgresql://localhost:5432/postgres}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:password}
+---
+# Global test configuration (all tests)
+spring:
+  config:
+    activate:
+      on-profile: test
+---
+# Unit test specific configuration
+spring:
+  config:
+    activate:
+      on-profile: unit
+  r2dbc:
+    url: r2dbc:h2:mem:///db
+    name: sa
+    password:
