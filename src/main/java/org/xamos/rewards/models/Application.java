@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
 @Data
@@ -17,5 +18,6 @@ public class Application {
 
   private String name;
 
-  private String client_id;
+  @Column("client_id")
+  private String clientId;
 }
