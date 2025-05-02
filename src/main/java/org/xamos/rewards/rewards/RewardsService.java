@@ -30,18 +30,18 @@ public class RewardsService {
     return rewardsRepository.findAll().log();
   }
 
-  public Mono<Rewards> adjustRewards(String username, Long points, PointsAdjustmentRequest.AdjustmentDirection direction) {
-    return switch (direction) {
+  public Mono<Rewards> adjustRewards(String username, Long points, PointsAdjustmentRequest.Operation operation) {
+    if (points < 0) {
+      return Mono.error(new IllegalArgumentException("Points cannot be negative"));
+    }
+
+    return switch (operation) {
       case ADD -> addRewards(username, points);
       case DEDUCT -> deductRewards(username, points);
     };
   }
 
-  public Mono<Rewards> addRewards(String username, Long points) {
-    if (points < 0) {
-      return Mono.error(new IllegalArgumentException("Points cannot be negative"));
-    }
-
+  private Mono<Rewards> addRewards(String username, Long points) {
     return rewardsRepository.findById(username)
         .flatMap(rewards -> {
           rewards.setPoints(rewards.getPoints() + points);
@@ -55,11 +55,7 @@ public class RewardsService {
         })).log();
   }
 
-  public Mono<Rewards> deductRewards(String username, Long points) {
-    if (points < 0) {
-      return Mono.error(new IllegalArgumentException("Points cannot be negative"));
-    }
-
+  private Mono<Rewards> deductRewards(String username, Long points) {
     return rewardsRepository.findById(username)
         .flatMap(rewards -> {
           if (rewards.getPoints() < points) {

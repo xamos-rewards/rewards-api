@@ -3,6 +3,7 @@ package org.xamos.rewards.application;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.xamos.rewards.exceptions.ApplicationIdNotFoundException;
 import org.xamos.rewards.models.Application;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -34,7 +35,12 @@ public class ApplicationService {
     return applicationRepository.deleteById(id).log();
   }
 
-  public Mono<Application> updateApplication(Application application) {
-    return applicationRepository.save(application).log();
+  public Mono<Application> updateApplication(Long id, String name) {
+    return applicationRepository.findById(id)
+            .switchIfEmpty(Mono.error(new ApplicationIdNotFoundException(id)))
+            .flatMap(app -> {
+              app.setName(name);
+              return applicationRepository.save(app);
+            }).log();
   }
 }

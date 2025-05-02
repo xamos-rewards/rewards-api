@@ -13,6 +13,7 @@ import org.springframework.web.bind.support.WebExchangeBindException;
 import org.springframework.web.reactive.result.method.annotation.ResponseEntityExceptionHandler;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.ServerWebInputException;
+import org.xamos.rewards.exceptions.ApplicationIdNotFoundException;
 import org.xamos.rewards.exceptions.InsufficientPointsException;
 import reactor.core.publisher.Mono;
 
@@ -22,6 +23,26 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
 
   private Mono<ResponseEntity<ApiError>> buildResponseEntity(ApiError apiError) {
     return Mono.just(new ResponseEntity<>(apiError, apiError.getStatus()));
+  }
+
+  @ExceptionHandler(InsufficientPointsException.class)
+  public Mono<ResponseEntity<ApiError>> handleInsufficientPointsException(ServerWebExchange exchange, InsufficientPointsException insufficientPointsException) {
+    log.error("{} Request to {}, user has insufficient points for operation", exchange.getRequest().getMethod(), exchange.getRequest().getURI(), insufficientPointsException);
+
+    String errorMessage = "User has insufficient points for operation";
+    ApiError apiError = new ApiError(HttpStatus.CONFLICT, errorMessage);
+
+    return buildResponseEntity(apiError);
+  }
+
+  @ExceptionHandler(ApplicationIdNotFoundException.class)
+  public Mono<ResponseEntity<ApiError>> handleApplicationIdNotFoundException(ServerWebExchange exchange, ApplicationIdNotFoundException applicationIdNotFoundException) {
+    log.error("{} Request to {}, Requested application not found", exchange.getRequest().getMethod(), exchange.getRequest().getURI(), applicationIdNotFoundException);
+
+    String errorMessage = "Application not found";
+    ApiError apiError = new ApiError(HttpStatus.NOT_FOUND, errorMessage, applicationIdNotFoundException);
+
+    return buildResponseEntity(apiError);
   }
 
   @Override
@@ -48,13 +69,6 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
     ApiError apiError = new ApiError(HttpStatus.BAD_REQUEST, errorMessage, debugMessage);
 
     return buildResponseEntity(apiError).map(response -> ResponseEntity.status(response.getStatusCode()).body(response.getBody()));
-  }
-
-  @Override
-  protected Mono<ResponseEntity<Object>> handleExceptionInternal(Exception ex, Object body, HttpHeaders headers, HttpStatusCode status, ServerWebExchange exchange) {
-    log.error("{} Request to {} raised {}", exchange.getRequest().getMethod(), exchange.getRequest().getURI(), ex, ex);
-
-    return super.handleExceptionInternal(ex, body, headers, status, exchange);
   }
 
   // Placeholder for Spring Security Configuration
@@ -89,16 +103,6 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
     return buildResponseEntity(apiError);
   }
 
-  @ExceptionHandler(InsufficientPointsException.class)
-  public Mono<ResponseEntity<ApiError>> handleInsufficientPointsException(ServerWebExchange exchange, InsufficientPointsException insufficientPointsException) {
-    log.error("{} Request to {}, user has insufficient points for operation", exchange.getRequest().getMethod(), exchange.getRequest().getURI(), insufficientPointsException);
-
-    String errorMessage = "User has insufficient points for operation";
-    ApiError apiError = new ApiError(HttpStatus.CONFLICT, errorMessage);
-
-    return buildResponseEntity(apiError);
-  }
-
   @ExceptionHandler(IllegalArgumentException.class)
   public Mono<ResponseEntity<ApiError>> handleIllegalArgumentException(ServerWebExchange exchange, IllegalArgumentException illegalArgumentException) {
     log.error("{} Request to {} provided an invalid request", exchange.getRequest().getMethod(), exchange.getRequest().getURI(), illegalArgumentException);
@@ -106,6 +110,13 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
     ApiError apiError = new ApiError(HttpStatus.BAD_REQUEST, illegalArgumentException.getMessage(), illegalArgumentException);
 
     return buildResponseEntity(apiError);
+  }
+
+  @Override
+  protected Mono<ResponseEntity<Object>> handleExceptionInternal(Exception ex, Object body, HttpHeaders headers, HttpStatusCode status, ServerWebExchange exchange) {
+    log.error("{} Request to {} raised {}", exchange.getRequest().getMethod(), exchange.getRequest().getURI(), ex, ex);
+
+    return super.handleExceptionInternal(ex, body, headers, status, exchange);
   }
 
   @ExceptionHandler(Exception.class)

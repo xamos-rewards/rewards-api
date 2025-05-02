@@ -31,7 +31,7 @@ public class RewardsController {
 
   @PutMapping
   public Mono<ResponseEntity<Rewards>> adjustRewards(@Valid @RequestBody PointsAdjustmentRequest request) {
-    return rewardsService.adjustRewards(request.getUsername(), request.getPoints(), request.getDirection())
+    return rewardsService.adjustRewards(request.getUsername(), request.getPoints(), request.getOperation())
             .map(rewards -> ResponseEntity.ok(rewards));
   }
 }
