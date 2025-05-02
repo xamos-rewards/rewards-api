@@ -15,6 +15,9 @@ spring:
       dev: local
       unit-test: test,unit
       integration-test: test,integration
+#logging:
+#  level:
+#    root: DEBUG
 ---
 spring:
   config:
