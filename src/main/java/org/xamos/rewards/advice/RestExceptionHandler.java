@@ -1,5 +1,6 @@
 package org.xamos.rewards.advice;
 
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.TransientDataAccessResourceException;
@@ -45,11 +46,24 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
     return buildResponseEntity(apiError);
   }
 
+  @ExceptionHandler(ConstraintViolationException.class)
+  public Mono<ResponseEntity<ApiError>> handleConstraintViolationException(ServerWebExchange exchange, ConstraintViolationException constraintViolationException) {
+    log.error("{} Request to {}, Invalid data received", exchange.getRequest().getMethod(), exchange.getRequest().getURI(), constraintViolationException);
+
+    String errorMessage = "Invalid data";
+    ApiError apiError = new ApiError(HttpStatus.BAD_REQUEST, errorMessage, constraintViolationException);
+
+    constraintViolationException.getConstraintViolations()
+            .forEach(violation -> apiError.addValidationError(violation.getPropertyPath().toString(), violation.getPropertyPath().toString(), violation.getInvalidValue(), violation.getMessage()));
+
+    return buildResponseEntity(apiError).map(response -> ResponseEntity.status(response.getStatusCode()).body(response.getBody()));
+  }
+
   @Override
   protected Mono<ResponseEntity<Object>> handleWebExchangeBindException(WebExchangeBindException ex, HttpHeaders headers, HttpStatusCode status, ServerWebExchange exchange) {
-    log.error("{} Request to {}, Invalid data format", exchange.getRequest().getMethod(), exchange.getRequest().getURI(), ex);
+    log.error("{} Request to {}, Invalid data received", exchange.getRequest().getMethod(), exchange.getRequest().getURI(), ex);
 
-    String errorMessage = "Invalid data format";
+    String errorMessage = "Invalid data";
     ApiError apiError = new ApiError(HttpStatus.BAD_REQUEST, errorMessage, ex);
     apiError.setDebugMessage(ex.getReason());
     ex.getBindingResult().getFieldErrors().forEach(fieldError -> apiError.addValidationError(fieldError));

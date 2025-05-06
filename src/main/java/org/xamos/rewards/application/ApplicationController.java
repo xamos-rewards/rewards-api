@@ -1,9 +1,12 @@
 package org.xamos.rewards.application;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.xamos.rewards.models.Application;
 import org.xamos.rewards.models.dto.RegisterApplicationRequest;
@@ -12,6 +15,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Slf4j
+@Validated // Needed to apply validations to non-POJOs in method parameter - Results in ConstraintViolationException
 @RestController
 @RequestMapping("/applications")
 @AllArgsConstructor
@@ -25,14 +29,14 @@ public class ApplicationController {
   }
 
   @GetMapping("/{id}")
-  public Mono<ResponseEntity<Application>> getApplicationById(@PathVariable Long id) {
+  public Mono<ResponseEntity<Application>> getApplicationById(@Valid @Positive @PathVariable Long id) {
     return applicationService.getApplicationById(id)
         .map(application -> ResponseEntity.ok(application))
         .switchIfEmpty(Mono.defer(() -> Mono.just(ResponseEntity.notFound().build())));
   }
 
   @GetMapping("/client/{clientId}")
-  public Mono<ResponseEntity<Application>> getApplicationByClientId(@PathVariable String clientId) {
+  public Mono<ResponseEntity<Application>> getApplicationByClientId(@Valid @NotBlank @PathVariable String clientId) {
     return applicationService.getApplicationByClientId(clientId)
         .map(application -> ResponseEntity.ok(application))
         .switchIfEmpty(Mono.defer(() -> Mono.just(ResponseEntity.notFound().build())));
@@ -51,7 +55,7 @@ public class ApplicationController {
   }
 
   @DeleteMapping("/{id}")
-  public Mono<ResponseEntity<Void>> deleteApplication(@PathVariable Long id) {
+  public Mono<ResponseEntity<Void>> deleteApplication(@Valid @Positive @PathVariable Long id) {
     return applicationService.deleteApplication(id)
         .then(Mono.just(ResponseEntity.accepted().build()));
   }
