@@ -6,6 +6,12 @@ spring:
   threads:
     virtual:
       enabled: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${AUTH0_ISSUER_URI:https://dev-example.auth0.com/}
+          audiences: ${AUTH0_AUDIENCE:https://rewards-api.xamos.org}
   # Disable docker compose plugin and database initialization by default
   docker:
     compose:
@@ -18,6 +24,25 @@ spring:
       dev: local
       unit: test
       integration: test
+app:
+  security:
+    permitted-paths:
+      - /actuator/**
+    cors:
+      allowed-methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      allowed-headers:
+        - Authorization
+        - Content-Type
+        - X-App-Identity
+      exposed-headers:
+        - Authorization
+        - X-App-Identity
+      allow-credentials: true
 #logging:
 #  level:
 #    root: DEBUG
@@ -43,6 +68,11 @@ spring:
     init:
       mode: always
       platform: postgres # Needed to inform Spring to look at schema-postgres.sql
+app:
+  security:
+    cors:
+      allowed-origins:
+        - http://localhost:4200
 ---
 # Global test configuration (all tests)
 spring:
@@ -73,3 +103,8 @@ spring:
   config:
     activate:
       on-profile: integration
+app:
+  security:
+    permitted-paths:
+      - /actuator/**
+      - /internal/**
