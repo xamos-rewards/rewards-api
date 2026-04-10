@@ -6,12 +6,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.xamos.rewards.application.ApplicationRepository;
 import org.xamos.rewards.exceptions.ApplicationNotRegisteredException;
 import org.xamos.rewards.models.Application;
 
-import java.util.Collections;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -82,9 +84,75 @@ class RewardsAuthenticationConverterTests {
 
         assertThat(result).isInstanceOf(RewardsAuthenticationToken.class);
         RewardsAuthenticationToken token = (RewardsAuthenticationToken) result;
+        assertThat(token.getApplication()).isEqualTo(app);
         assertThat(token.isServiceRequest()).isTrue();
         assertThat(token.isUserMediated()).isFalse();
         assertThat(token.getUser()).isEmpty();
+    }
+
+    @Test
+    void shouldMapStandardScopesToAuthorities() {
+        String clientId = "test-client";
+        Jwt jwt = Jwt.withTokenValue("token")
+                .header("alg", "none")
+                .subject("user123")
+                .claim("azp", clientId)
+                .claim("scope", "read:rewards add:rewards deduct:rewards")
+                .build();
+
+        when(applicationRepository.findByClientId(clientId)).thenReturn(Optional.of(new Application()));
+
+        AbstractAuthenticationToken result = converter.convert(jwt);
+
+        Collection<String> authorities = result.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList();
+
+        assertThat(authorities).containsExactlyInAnyOrder("SCOPE_read:rewards", "SCOPE_add:rewards", "SCOPE_deduct:rewards");
+    }
+
+    @Test
+    void shouldMapAuth0PermissionsToAuthorities() {
+        String clientId = "test-client";
+        Jwt jwt = Jwt.withTokenValue("token")
+                .header("alg", "none")
+                .subject("user123")
+                .claim("azp", clientId)
+                .claim("permissions", List.of("read:rewards", "add:rewards", "deduct:rewards"))
+                .build();
+
+        when(applicationRepository.findByClientId(clientId)).thenReturn(Optional.of(new Application()));
+
+        AbstractAuthenticationToken result = converter.convert(jwt);
+
+        Collection<String> authorities = result.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList();
+
+        assertThat(authorities).containsExactlyInAnyOrder("SCOPE_read:rewards", "SCOPE_add:rewards", "SCOPE_deduct:rewards");
+    }
+
+    @Test
+    void shouldMergeScopesAndPermissionsAndDeDuplicate() {
+        String clientId = "test-client";
+        Jwt jwt = Jwt.withTokenValue("token")
+                .header("alg", "none")
+                .subject("user123")
+                .claim("azp", clientId)
+                .claim("scope", "read:rewards")
+                .claim("permissions", List.of("read:rewards", "add:rewards"))
+                .build();
+
+        when(applicationRepository.findByClientId(clientId)).thenReturn(Optional.of(new Application()));
+
+        AbstractAuthenticationToken result = converter.convert(jwt);
+
+        Collection<String> authorities = result.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList();
+
+        // 'read:rewards' is in both, should only appear once
+        assertThat(authorities).containsExactlyInAnyOrder("SCOPE_read:rewards", "SCOPE_add:rewards");
     }
 
     @Test
@@ -103,9 +171,9 @@ class RewardsAuthenticationConverterTests {
         Jwt.Builder builder = Jwt.withTokenValue("mock-token")
                 .header("alg", "none")
                 .subject(sub);
-        
+
         if (azp != null) builder.claim("azp", azp);
-        
+
         return builder.build();
     }
 }
