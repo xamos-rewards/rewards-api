@@ -3,6 +3,9 @@ server:
 spring:
   application:
     name: rewards-api
+  threads:
+    virtual:
+      enabled: true
   # Disable docker compose plugin and database initialization by default
   docker:
     compose:
