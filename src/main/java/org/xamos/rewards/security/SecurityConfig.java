@@ -19,6 +19,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class SecurityConfig {
 
     private final SecurityProperties securityProperties;
+    private final RewardsAuthenticationConverter rewardsAuthenticationConverter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -30,7 +31,9 @@ public class SecurityConfig {
                         .requestMatchers(securityProperties.getPermittedPaths().toArray(new String[0])).permitAll()
                         .anyRequest().authenticated()
                 )
-                .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(rewardsAuthenticationConverter))
+                )
                 .build();
     }
 
