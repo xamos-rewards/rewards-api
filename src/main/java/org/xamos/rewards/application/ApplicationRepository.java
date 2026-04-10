@@ -1,11 +1,11 @@
 package org.xamos.rewards.application;
 
-import org.springframework.data.r2dbc.repository.R2dbcRepository;
+import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import org.xamos.rewards.models.Application;
-import reactor.core.publisher.Mono;
+import java.util.Optional;
 
 @Repository
-public interface ApplicationRepository extends R2dbcRepository<Application, Long>  {
-  Mono<Application> findByClientId(String clientId);
+public interface ApplicationRepository extends JpaRepository<Application, Long>  {
+  Optional<Application> findByClientId(String clientId);
 }

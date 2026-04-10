@@ -9,11 +9,11 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.xamos.rewards.models.Rewards;
 import org.xamos.rewards.models.dto.PointsAdjustmentRequest;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
+
+import java.util.List;
 
 @Slf4j
-@Validated // Needed to apply validations to non-POJOs in method parameter - Results in ConstraintViolationException
+@Validated
 @RestController
 @RequestMapping("/rewards")
 @AllArgsConstructor
@@ -22,19 +22,17 @@ public class RewardsController {
   private final RewardsService rewardsService;
 
   @GetMapping
-  public ResponseEntity<Flux<Rewards>> getRewards() {
+  public ResponseEntity<List<Rewards>> getRewards() {
     return ResponseEntity.ok(rewardsService.getRewards());
   }
 
   @GetMapping("/{username}")
-  public Mono<ResponseEntity<Rewards>> getRewards(@Valid @NotBlank @PathVariable String username) {
-    return rewardsService.getRewards(username)
-            .map(rewards -> ResponseEntity.ok(rewards));
+  public ResponseEntity<Rewards> getRewards(@Valid @NotBlank @PathVariable String username) {
+    return ResponseEntity.ok(rewardsService.getRewards(username));
   }
 
   @PutMapping
-  public Mono<ResponseEntity<Rewards>> adjustRewards(@Valid @RequestBody PointsAdjustmentRequest request) {
-    return rewardsService.adjustRewards(request.getUsername(), request.getPoints(), request.getOperation())
-            .map(rewards -> ResponseEntity.ok(rewards));
+  public ResponseEntity<Rewards> adjustRewards(@Valid @RequestBody PointsAdjustmentRequest request) {
+    return ResponseEntity.ok(rewardsService.adjustRewards(request.getUsername(), request.getPoints(), request.getOperation()));
   }
 }

@@ -3,16 +3,17 @@ package org.xamos.rewards;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.r2dbc.core.DatabaseClient;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import reactor.test.StepVerifier;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @ActiveProfiles({"unit-test"})
 class RewardsApiApplicationTests {
 
   @Autowired
-  private DatabaseClient databaseClient;
+  private JdbcTemplate jdbcTemplate;
 
   @Test
   void contextLoads() {
@@ -20,11 +21,7 @@ class RewardsApiApplicationTests {
 
   @Test
   void testDatabaseConnection() {
-    this.databaseClient.sql("SELECT * FROM applications")
-        .map(row -> row.get("name", String.class))
-        .all()
-        .as(StepVerifier::create)
-        .expectNextCount(1)
-        .verifyComplete();
+    Integer count = jdbcTemplate.queryForObject("SELECT count(*) FROM applications", Integer.class);
+    assertThat(count).isEqualTo(1);
   }
 }
