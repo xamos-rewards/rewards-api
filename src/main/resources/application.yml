@@ -26,6 +26,11 @@ spring:
       integration: test
 app:
   security:
+    auth0:
+      domain: ${AUTH0_DOMAIN}
+      management:
+        client-id: ${AUTH0_MANAGEMENT_CLIENT_ID}
+        client-secret: ${AUTH0_MANAGEMENT_CLIENT_SECRET}
     permitted-paths:
       - /actuator/**
     cors:
