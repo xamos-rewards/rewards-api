@@ -16,8 +16,8 @@ spring:
   profiles:
     group:
       dev: local
-      unit-test: test,unit
-      integration-test: test,integration
+      unit: test
+      integration: test
 #logging:
 #  level:
 #    root: DEBUG
@@ -67,3 +67,9 @@ spring:
   jpa:
     open-in-view: false
     defer-datasource-initialization: true
+---
+# Integration test specific configuration
+spring:
+  config:
+    activate:
+      on-profile: integration

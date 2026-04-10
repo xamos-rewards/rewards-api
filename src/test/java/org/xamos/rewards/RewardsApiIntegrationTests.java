@@ -1,6 +1,7 @@
 package org.xamos.rewards;
 
 import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
@@ -13,7 +14,8 @@ import org.xamos.rewards.infrastructure.TestSecurityConfig;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Slf4j
-@ActiveProfiles({"integration-test"})
+@Tag("integration")
+@ActiveProfiles({"integration"})
 @AutoConfigureTestRestTemplate
 @Import(TestSecurityConfig.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
