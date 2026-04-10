@@ -1,5 +1,6 @@
 package org.xamos.rewards.advice;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -8,27 +9,28 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.bind.support.WebExchangeBindException;
-import org.springframework.web.reactive.result.method.annotation.ResponseEntityExceptionHandler;
-import org.springframework.web.server.ServerWebExchange;
-import org.springframework.web.server.ServerWebInputException;
+import org.springframework.web.context.request.ServletWebRequest;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import org.xamos.rewards.exceptions.ApplicationClientIdNotFoundException;
 import org.xamos.rewards.exceptions.ApplicationIdNotFoundException;
 import org.xamos.rewards.exceptions.InsufficientPointsException;
-import reactor.core.publisher.Mono;
 
 @Slf4j
 @RestControllerAdvice
 public class RestExceptionHandler extends ResponseEntityExceptionHandler {
 
-  private Mono<ResponseEntity<ApiError>> buildResponseEntity(ApiError apiError) {
-    return Mono.just(new ResponseEntity<>(apiError, apiError.getStatus()));
+  private ResponseEntity<ApiError> buildResponseEntity(ApiError apiError) {
+    return new ResponseEntity<>(apiError, apiError.getStatus());
   }
 
   @ExceptionHandler(InsufficientPointsException.class)
-  public Mono<ResponseEntity<ApiError>> handleInsufficientPointsException(ServerWebExchange exchange, InsufficientPointsException insufficientPointsException) {
-    log.error("{} Request to {}, user has insufficient points for operation", exchange.getRequest().getMethod(), exchange.getRequest().getURI(), insufficientPointsException);
+  public ResponseEntity<ApiError> handleInsufficientPointsException(HttpServletRequest request, InsufficientPointsException insufficientPointsException) {
+    log.error("{} Request to {}, user has insufficient points for operation", request.getMethod(), request.getRequestURI(), insufficientPointsException);
 
     String errorMessage = "User has insufficient points for operation";
     ApiError apiError = new ApiError(HttpStatus.CONFLICT, errorMessage);
@@ -37,8 +39,8 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   @ExceptionHandler(ApplicationIdNotFoundException.class)
-  public Mono<ResponseEntity<ApiError>> handleApplicationIdNotFoundException(ServerWebExchange exchange, ApplicationIdNotFoundException applicationIdNotFoundException) {
-    log.error("{} Request to {}, Requested application not found", exchange.getRequest().getMethod(), exchange.getRequest().getURI(), applicationIdNotFoundException);
+  public ResponseEntity<ApiError> handleApplicationIdNotFoundException(HttpServletRequest request, ApplicationIdNotFoundException applicationIdNotFoundException) {
+    log.error("{} Request to {}, Requested application not found", request.getMethod(), request.getRequestURI(), applicationIdNotFoundException);
 
     String errorMessage = "Application not found";
     ApiError apiError = new ApiError(HttpStatus.NOT_FOUND, errorMessage, applicationIdNotFoundException);
@@ -46,9 +48,19 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
     return buildResponseEntity(apiError);
   }
 
+  @ExceptionHandler(ApplicationClientIdNotFoundException.class)
+  public ResponseEntity<ApiError> handleApplicationClientIdNotFoundException(HttpServletRequest request, ApplicationClientIdNotFoundException applicationClientIdNotFoundException) {
+    log.error("{} Request to {}, Requested application with client ID not found", request.getMethod(), request.getRequestURI(), applicationClientIdNotFoundException);
+
+    String errorMessage = "Application with client ID not found";
+    ApiError apiError = new ApiError(HttpStatus.NOT_FOUND, errorMessage, applicationClientIdNotFoundException);
+
+    return buildResponseEntity(apiError);
+  }
+
   @ExceptionHandler(ConstraintViolationException.class)
-  public Mono<ResponseEntity<ApiError>> handleConstraintViolationException(ServerWebExchange exchange, ConstraintViolationException constraintViolationException) {
-    log.error("{} Request to {}, Invalid data received", exchange.getRequest().getMethod(), exchange.getRequest().getURI(), constraintViolationException);
+  public ResponseEntity<ApiError> handleConstraintViolationException(HttpServletRequest request, ConstraintViolationException constraintViolationException) {
+    log.error("{} Request to {}, Invalid data received", request.getMethod(), request.getRequestURI(), constraintViolationException);
 
     String errorMessage = "Invalid data";
     ApiError apiError = new ApiError(HttpStatus.BAD_REQUEST, errorMessage, constraintViolationException);
@@ -56,39 +68,37 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
     constraintViolationException.getConstraintViolations()
             .forEach(violation -> apiError.addValidationError(violation.getPropertyPath().toString(), violation.getPropertyPath().toString(), violation.getInvalidValue(), violation.getMessage()));
 
-    return buildResponseEntity(apiError).map(response -> ResponseEntity.status(response.getStatusCode()).body(response.getBody()));
+    return buildResponseEntity(apiError);
   }
 
   @Override
-  protected Mono<ResponseEntity<Object>> handleWebExchangeBindException(WebExchangeBindException ex, HttpHeaders headers, HttpStatusCode status, ServerWebExchange exchange) {
-    log.error("{} Request to {}, Invalid data received", exchange.getRequest().getMethod(), exchange.getRequest().getURI(), ex);
+  protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+    HttpServletRequest servletRequest = ((ServletWebRequest) request).getRequest();
+    log.error("{} Request to {}, Invalid data received", servletRequest.getMethod(), servletRequest.getRequestURI(), ex);
 
     String errorMessage = "Invalid data";
     ApiError apiError = new ApiError(HttpStatus.BAD_REQUEST, errorMessage, ex);
-    apiError.setDebugMessage(ex.getReason());
     ex.getBindingResult().getFieldErrors().forEach(fieldError -> apiError.addValidationError(fieldError));
     ex.getBindingResult().getGlobalErrors().forEach(globalError -> apiError.addValidationError(globalError));
 
-    // This mapping is used to simplify the conversion of types
-    // and avoid the need for casting
-    return buildResponseEntity(apiError).map(response -> ResponseEntity.status(response.getStatusCode()).body(response.getBody()));
+    return (ResponseEntity) buildResponseEntity(apiError);
   }
 
   @Override
-  protected Mono<ResponseEntity<Object>> handleServerWebInputException(ServerWebInputException ex, HttpHeaders headers, HttpStatusCode status, ServerWebExchange exchange) {
-    log.error("{} Request to {} provided invalid JSON", exchange.getRequest().getMethod(), exchange.getRequest().getURI(), ex);
+  protected ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+    HttpServletRequest servletRequest = ((ServletWebRequest) request).getRequest();
+    log.error("{} Request to {} provided invalid JSON", servletRequest.getMethod(), servletRequest.getRequestURI(), ex);
 
     String errorMessage = "Invalid JSON format";
-    String debugMessage = (ex.getCause() != null) ? ex.getCause().getLocalizedMessage() : ex.getReason();
-    ApiError apiError = new ApiError(HttpStatus.BAD_REQUEST, errorMessage, debugMessage);
+    ApiError apiError = new ApiError(HttpStatus.BAD_REQUEST, errorMessage, ex.getLocalizedMessage());
 
-    return buildResponseEntity(apiError).map(response -> ResponseEntity.status(response.getStatusCode()).body(response.getBody()));
+    return (ResponseEntity) buildResponseEntity(apiError);
   }
 
   // Placeholder for Spring Security Configuration
 //  @ExceptionHandler(AccessDeniedException.class)
-//  public ResponseEntity<Object> handleAccessDeniedException(ServerWebExchange exchange, AccessDeniedException accessDeniedException) {
-//    log.error("{} Request to {}, action not permitted by user", exchange.getRequest().getMethod(), exchange.getRequest().getURI(), accessDeniedException);
+//  public ResponseEntity<Object> handleAccessDeniedException(HttpServletRequest request, AccessDeniedException accessDeniedException) {
+//    log.error("{} Request to {}, action not permitted by user", request.getMethod(), request.getRequestURI(), accessDeniedException);
 //
 //    String errorMessage = "Action not permitted";
 //    ApiError apiError = new ApiError(HttpStatus.FORBIDDEN, errorMessage, accessDeniedException);
@@ -97,8 +107,8 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
 //  }
 
   @ExceptionHandler(DataIntegrityViolationException.class)
-  public Mono<ResponseEntity<ApiError>> handleDataIntegrityViolationException(ServerWebExchange exchange, DataIntegrityViolationException dataIntegrityViolationException) {
-    log.error("{} Request to {}, Data integrity violation", exchange.getRequest().getMethod(), exchange.getRequest().getURI(), dataIntegrityViolationException);
+  public ResponseEntity<ApiError> handleDataIntegrityViolationException(HttpServletRequest request, DataIntegrityViolationException dataIntegrityViolationException) {
+    log.error("{} Request to {}, Data integrity violation", request.getMethod(), request.getRequestURI(), dataIntegrityViolationException);
 
     String errorMessage = "Data integrity violation";
     ApiError apiError = new ApiError(HttpStatus.BAD_REQUEST, errorMessage, dataIntegrityViolationException);
@@ -107,8 +117,8 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   @ExceptionHandler(TransientDataAccessResourceException.class)
-  public Mono<ResponseEntity<ApiError>> handleTransientDataAccessResourceException(ServerWebExchange exchange, TransientDataAccessResourceException transientDataAccessResourceException) {
-    log.error("{} Request to {}, Data access failure", exchange.getRequest().getMethod(), exchange.getRequest().getURI(), transientDataAccessResourceException);
+  public ResponseEntity<ApiError> handleTransientDataAccessResourceException(HttpServletRequest request, TransientDataAccessResourceException transientDataAccessResourceException) {
+    log.error("{} Request to {}, Data access failure", request.getMethod(), request.getRequestURI(), transientDataAccessResourceException);
 
     // We exclude the debugMessage from the ApiError as it can be too revealing of internal details
     String errorMessage = "Data access failure";
@@ -118,8 +128,8 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   @ExceptionHandler(IllegalArgumentException.class)
-  public Mono<ResponseEntity<ApiError>> handleIllegalArgumentException(ServerWebExchange exchange, IllegalArgumentException illegalArgumentException) {
-    log.error("{} Request to {} provided an invalid request", exchange.getRequest().getMethod(), exchange.getRequest().getURI(), illegalArgumentException);
+  public ResponseEntity<ApiError> handleIllegalArgumentException(HttpServletRequest request, IllegalArgumentException illegalArgumentException) {
+    log.error("{} Request to {} provided an invalid request", request.getMethod(), request.getRequestURI(), illegalArgumentException);
 
     ApiError apiError = new ApiError(HttpStatus.BAD_REQUEST, illegalArgumentException.getMessage(), illegalArgumentException);
 
@@ -127,15 +137,16 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   @Override
-  protected Mono<ResponseEntity<Object>> handleExceptionInternal(Exception ex, Object body, HttpHeaders headers, HttpStatusCode status, ServerWebExchange exchange) {
-    log.error("{} Request to {} raised {}", exchange.getRequest().getMethod(), exchange.getRequest().getURI(), ex, ex);
+  protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+    HttpServletRequest servletRequest = ((ServletWebRequest) request).getRequest();
+    log.error("{} Request to {} raised {}", servletRequest.getMethod(), servletRequest.getRequestURI(), ex, ex);
 
-    return super.handleExceptionInternal(ex, body, headers, status, exchange);
+    return super.handleExceptionInternal(ex, body, headers, status, request);
   }
 
   @ExceptionHandler(Exception.class)
-  public Mono<ResponseEntity<ApiError>> handleGenericException(ServerWebExchange exchange, Exception exception) {
-    log.error("{} Request to {} raised {}", exchange.getRequest().getMethod(), exchange.getRequest().getURI(), exception, exception);
+  public ResponseEntity<ApiError> handleGenericException(HttpServletRequest request, Exception exception) {
+    log.error("{} Request to {} raised {}", request.getMethod(), request.getRequestURI(), exception, exception);
 
     String errorMessage = "Something went wrong";
     ApiError apiError = new ApiError(HttpStatus.BAD_REQUEST, errorMessage, exception);
@@ -144,8 +155,8 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   @ExceptionHandler(Error.class)
-  public Mono<ResponseEntity<ApiError>> handleGenericError(ServerWebExchange exchange, Error error) {
-    log.error("{} Request to {} raised {}", exchange.getRequest().getMethod(), exchange.getRequest().getURI(), error, error);
+  public ResponseEntity<ApiError> handleGenericError(HttpServletRequest request, Error error) {
+    log.error("{} Request to {} raised {}", request.getMethod(), request.getRequestURI(), error, error);
 
     String errorMessage = "Fatal internal server error occurred";
     ApiError apiError = new ApiError(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage, error);

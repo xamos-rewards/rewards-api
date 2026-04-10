@@ -3,6 +3,9 @@ server:
 spring:
   application:
     name: rewards-api
+  threads:
+    virtual:
+      enabled: true
   # Disable docker compose plugin and database initialization by default
   docker:
     compose:
@@ -13,8 +16,8 @@ spring:
   profiles:
     group:
       dev: local
-      unit-test: test,unit
-      integration-test: test,integration
+      unit: test
+      integration: test
 #logging:
 #  level:
 #    root: DEBUG
@@ -26,10 +29,16 @@ spring:
   docker:
     compose:
       lifecycle-management: start-and-stop
-  r2dbc:
-    url: ${DB_URL:r2dbc:postgresql://localhost:5432/postgres}
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/postgres}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    open-in-view: false
+    defer-datasource-initialization: true
+    hibernate:
+      ddl-auto: validate
   sql:
     init:
       mode: always
@@ -46,11 +55,21 @@ spring:
   config:
     activate:
       on-profile: unit
-  r2dbc:
-    url: r2dbc:h2:mem:///db
-    name: sa
+  datasource:
+    url: jdbc:h2:mem:db;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    username: sa
     password:
+    driver-class-name: org.h2.Driver
   sql:
     init:
       mode: always
       platform: h2 # Needed to inform Spring to look at schema-h2.sql
+  jpa:
+    open-in-view: false
+    defer-datasource-initialization: true
+---
+# Integration test specific configuration
+spring:
+  config:
+    activate:
+      on-profile: integration

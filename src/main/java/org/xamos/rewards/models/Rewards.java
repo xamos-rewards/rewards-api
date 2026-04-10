@@ -1,15 +1,17 @@
 package org.xamos.rewards.models;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.relational.core.mapping.Table;
 
 @Data
+@Entity
 @NoArgsConstructor
 @AllArgsConstructor
-@Table("rewards")
+@Table(name = "rewards")
 public class Rewards {
 
   @Id

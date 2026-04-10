@@ -11,11 +11,11 @@ import org.springframework.web.bind.annotation.*;
 import org.xamos.rewards.models.Application;
 import org.xamos.rewards.models.dto.RegisterApplicationRequest;
 import org.xamos.rewards.models.dto.UpdateApplicationRequest;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
+
+import java.util.List;
 
 @Slf4j
-@Validated // Needed to apply validations to non-POJOs in method parameter - Results in ConstraintViolationException
+@Validated
 @RestController
 @RequestMapping("/applications")
 @AllArgsConstructor
@@ -24,39 +24,33 @@ public class ApplicationController {
   private final ApplicationService applicationService;
 
   @GetMapping
-  public ResponseEntity<Flux<Application>> getApplications() {
+  public ResponseEntity<List<Application>> getApplications() {
     return ResponseEntity.ok(applicationService.getApplications());
   }
 
   @GetMapping("/{id}")
-  public Mono<ResponseEntity<Application>> getApplicationById(@Valid @Positive @PathVariable Long id) {
-    return applicationService.getApplicationById(id)
-        .map(application -> ResponseEntity.ok(application))
-        .switchIfEmpty(Mono.defer(() -> Mono.just(ResponseEntity.notFound().build())));
+  public ResponseEntity<Application> getApplicationById(@Valid @Positive @PathVariable Long id) {
+    return ResponseEntity.ok(applicationService.getApplicationById(id));
   }
 
   @GetMapping("/client/{clientId}")
-  public Mono<ResponseEntity<Application>> getApplicationByClientId(@Valid @NotBlank @PathVariable String clientId) {
-    return applicationService.getApplicationByClientId(clientId)
-        .map(application -> ResponseEntity.ok(application))
-        .switchIfEmpty(Mono.defer(() -> Mono.just(ResponseEntity.notFound().build())));
+  public ResponseEntity<Application> getApplicationByClientId(@Valid @NotBlank @PathVariable String clientId) {
+    return ResponseEntity.ok(applicationService.getApplicationByClientId(clientId));
   }
 
   @PostMapping
-  public Mono<ResponseEntity<Application>> registerApplication(@Valid @RequestBody RegisterApplicationRequest request) {
-    return applicationService.registerApplication(request.toApplication())
-        .map(app -> ResponseEntity.ok(app));
+  public ResponseEntity<Application> registerApplication(@Valid @RequestBody RegisterApplicationRequest request) {
+    return ResponseEntity.ok(applicationService.registerApplication(request.toApplication()));
   }
 
   @PutMapping
-  public Mono<ResponseEntity<Application>> updateApplication(@Valid @RequestBody UpdateApplicationRequest request) {
-    return applicationService.updateApplication(request.getId(), request.getName())
-            .map(app -> ResponseEntity.ok(app));
+  public ResponseEntity<Application> updateApplication(@Valid @RequestBody UpdateApplicationRequest request) {
+    return ResponseEntity.ok(applicationService.updateApplication(request.getId(), request.getName()));
   }
 
   @DeleteMapping("/{id}")
-  public Mono<ResponseEntity<Void>> deleteApplication(@Valid @Positive @PathVariable Long id) {
-    return applicationService.deleteApplication(id)
-        .then(Mono.just(ResponseEntity.accepted().build()));
+  public ResponseEntity<Void> deleteApplication(@Valid @Positive @PathVariable Long id) {
+    applicationService.deleteApplication(id);
+    return ResponseEntity.accepted().build();
   }
 }
