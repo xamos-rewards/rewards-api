@@ -1,4 +1,4 @@
-package org.xamos.rewards;
+package org.xamos.rewards.integration.infrastructure;
 
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Tag;
@@ -7,9 +7,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.ActiveProfiles;
-import org.xamos.rewards.infrastructure.TestSecurityConfig;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -17,12 +17,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("integration")
 @ActiveProfiles({"integration"})
 @AutoConfigureTestRestTemplate
-@Import(TestSecurityConfig.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class RewardsApiIntegrationTests {
+public class InfrastructureTests {
 
     @Autowired
     private TestRestTemplate restTemplate;
+
+    @MockitoBean
+    private JwtDecoder jwtDecoder;
 
     @Test
     void verifyVirtualThreadsInUse() {

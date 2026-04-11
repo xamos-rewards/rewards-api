@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.xamos.rewards.exceptions.ApplicationClientIdNotFoundException;
 import org.xamos.rewards.exceptions.ApplicationIdNotFoundException;
 import org.xamos.rewards.models.Application;
+import org.xamos.rewards.security.Auth0ManagementService;
 
 import java.util.List;
 
@@ -16,6 +17,7 @@ import java.util.List;
 public class ApplicationService {
 
   private final ApplicationRepository applicationRepository;
+  private final Auth0ManagementService auth0ManagementService;
 
   public Application getApplicationById(Long id) {
     return applicationRepository.findById(id)
@@ -32,6 +34,8 @@ public class ApplicationService {
   }
 
   public Application registerApplication(Application application) {
+    String clientId = auth0ManagementService.createClient(application.getName());
+    application.setClientId(clientId);
     return applicationRepository.save(application);
   }
 

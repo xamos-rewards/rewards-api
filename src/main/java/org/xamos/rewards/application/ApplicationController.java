@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.xamos.rewards.models.Application;
 import org.xamos.rewards.models.dto.RegisterApplicationRequest;
 import org.xamos.rewards.models.dto.UpdateApplicationRequest;
@@ -39,6 +40,7 @@ public class ApplicationController {
   }
 
   @PostMapping
+  @PreAuthorize("hasAuthority('SCOPE_create:application')")
   public ResponseEntity<Application> registerApplication(@Valid @RequestBody RegisterApplicationRequest request) {
     return ResponseEntity.ok(applicationService.registerApplication(request.toApplication()));
   }
