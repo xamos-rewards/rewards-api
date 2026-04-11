@@ -10,6 +10,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -18,6 +20,7 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import org.xamos.rewards.exceptions.ApplicationClientIdNotFoundException;
 import org.xamos.rewards.exceptions.ApplicationIdNotFoundException;
+import org.xamos.rewards.exceptions.Auth0ManagementException;
 import org.xamos.rewards.exceptions.InsufficientPointsException;
 
 @Slf4j
@@ -26,6 +29,16 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
 
   private ResponseEntity<ApiError> buildResponseEntity(ApiError apiError) {
     return new ResponseEntity<>(apiError, apiError.getStatus());
+  }
+
+  @ExceptionHandler(Auth0ManagementException.class)
+  public ResponseEntity<ApiError> handleAuth0ManagementException(HttpServletRequest request, Auth0ManagementException ex) {
+    log.error("{} Request to {}, Auth0 Management API error: {}", 
+              request.getMethod(), request.getRequestURI(), ex.getMessage(), ex);
+
+    ApiError apiError = new ApiError(HttpStatus.BAD_GATEWAY, "Error communicating with identity provider", ex);
+
+    return buildResponseEntity(apiError);
   }
 
   @ExceptionHandler(InsufficientPointsException.class)
@@ -95,16 +108,19 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
     return (ResponseEntity) buildResponseEntity(apiError);
   }
 
-  // Placeholder for Spring Security Configuration
-//  @ExceptionHandler(AccessDeniedException.class)
-//  public ResponseEntity<Object> handleAccessDeniedException(HttpServletRequest request, AccessDeniedException accessDeniedException) {
-//    log.error("{} Request to {}, action not permitted by user", request.getMethod(), request.getRequestURI(), accessDeniedException);
-//
-//    String errorMessage = "Action not permitted";
-//    ApiError apiError = new ApiError(HttpStatus.FORBIDDEN, errorMessage, accessDeniedException);
-//
-//    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorMessage);
-//  }
+  @ExceptionHandler(AccessDeniedException.class)
+  public ResponseEntity<ApiError> handleAccessDeniedException(HttpServletRequest request, AccessDeniedException ex) {
+    log.error("{} Request to {}, action not permitted by user, User={}, Authorities={}", 
+              request.getMethod(), 
+              request.getRequestURI(), 
+              SecurityContextHolder.getContext().getAuthentication().getName(),
+              SecurityContextHolder.getContext().getAuthentication().getAuthorities());
+
+    String errorMessage = "Action not permitted";
+    ApiError apiError = new ApiError(HttpStatus.FORBIDDEN, errorMessage);
+
+    return buildResponseEntity(apiError);
+  }
 
   @ExceptionHandler(DataIntegrityViolationException.class)
   public ResponseEntity<ApiError> handleDataIntegrityViolationException(HttpServletRequest request, DataIntegrityViolationException dataIntegrityViolationException) {

@@ -1,7 +1,5 @@
 package org.xamos.rewards.application;
 
-import com.auth0.client.mgmt.ManagementAPI;
-import com.auth0.json.mgmt.client.Client;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -9,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.xamos.rewards.exceptions.ApplicationClientIdNotFoundException;
 import org.xamos.rewards.exceptions.ApplicationIdNotFoundException;
 import org.xamos.rewards.models.Application;
+import org.xamos.rewards.security.Auth0ManagementService;
 
 import java.util.List;
 
@@ -18,7 +17,7 @@ import java.util.List;
 public class ApplicationService {
 
   private final ApplicationRepository applicationRepository;
-  private final ManagementAPI managementApi;
+  private final Auth0ManagementService auth0ManagementService;
 
   public Application getApplicationById(Long id) {
     return applicationRepository.findById(id)
@@ -35,16 +34,9 @@ public class ApplicationService {
   }
 
   public Application registerApplication(Application application) {
-    try {
-        Client auth0Client = new Client(application.getName());
-        auth0Client.setAppType("non_interactive");
-        Client createdClient = managementApi.clients().create(auth0Client).execute().getBody();
-        application.setClientId(createdClient.getClientId());
-        return applicationRepository.save(application);
-    } catch (Exception e) {
-        log.error("Failed to register application with Auth0", e);
-        throw new RuntimeException("Failed to register application with Auth0", e);
-    }
+    String clientId = auth0ManagementService.createClient(application.getName());
+    application.setClientId(clientId);
+    return applicationRepository.save(application);
   }
 
   public void deleteApplication(Long id) {
