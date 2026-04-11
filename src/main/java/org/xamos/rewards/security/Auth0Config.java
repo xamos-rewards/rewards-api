@@ -1,6 +1,7 @@
 package org.xamos.rewards.security;
 
 import com.auth0.client.auth.AuthAPI;
+import com.auth0.client.mgmt.ManagementAPI;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,5 +20,10 @@ public class Auth0Config {
     @Bean
     public AuthAPI authApi() {
         return AuthAPI.newBuilder(domain, clientId, clientSecret).build();
+    }
+
+    @Bean
+    public ManagementAPI managementApi() {
+        return ManagementAPI.newBuilder(domain, "placeholder-token-replaced-by-aop").build();
     }
 }
