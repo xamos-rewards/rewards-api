@@ -46,7 +46,7 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
     log.error("{} Request to {}, user has insufficient points for operation", request.getMethod(), request.getRequestURI(), insufficientPointsException);
 
     String errorMessage = "User has insufficient points for operation";
-    ApiError apiError = new ApiError(HttpStatus.CONFLICT, errorMessage);
+    ApiError apiError = new ApiError(HttpStatus.CONFLICT, errorMessage, insufficientPointsException);
 
     return buildResponseEntity(apiError);
   }
@@ -103,7 +103,7 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
     log.error("{} Request to {} provided invalid JSON", servletRequest.getMethod(), servletRequest.getRequestURI(), ex);
 
     String errorMessage = "Invalid JSON format";
-    ApiError apiError = new ApiError(HttpStatus.BAD_REQUEST, errorMessage, ex.getLocalizedMessage());
+    ApiError apiError = new ApiError(HttpStatus.BAD_REQUEST, errorMessage, ex);
 
     return (ResponseEntity) buildResponseEntity(apiError);
   }
@@ -117,7 +117,7 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
               SecurityContextHolder.getContext().getAuthentication().getAuthorities());
 
     String errorMessage = "Action not permitted";
-    ApiError apiError = new ApiError(HttpStatus.FORBIDDEN, errorMessage);
+    ApiError apiError = new ApiError(HttpStatus.FORBIDDEN, errorMessage, ex);
 
     return buildResponseEntity(apiError);
   }
