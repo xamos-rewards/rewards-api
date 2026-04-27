@@ -1,7 +1,9 @@
 package org.xamos.rewards.security;
 
-import com.auth0.client.mgmt.ManagementAPI;
-import com.auth0.json.mgmt.client.Client;
+import com.auth0.client.mgmt.ManagementApi;
+import com.auth0.client.mgmt.types.ClientAppTypeEnum;
+import com.auth0.client.mgmt.types.CreateClientRequestContent;
+import com.auth0.client.mgmt.types.CreateClientResponseContent;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -12,7 +14,7 @@ import org.xamos.rewards.exceptions.Auth0ManagementException;
 @AllArgsConstructor
 public class Auth0ManagementService {
 
-    private final ManagementAPI managementApi;
+    private final ManagementApi managementApi;
 
     /**
      * Creates a new Non-Interactive (M2M) client in Auth0.
@@ -23,10 +25,14 @@ public class Auth0ManagementService {
      */
     public String createClient(String name) {
         try {
-            Client auth0Client = new Client(name);
-            auth0Client.setAppType("non_interactive");
-            Client createdClient = managementApi.clients().create(auth0Client).execute().getBody();
-            return createdClient.getClientId();
+            CreateClientRequestContent request = CreateClientRequestContent.builder()
+                    .name(name)
+                    .appType(ClientAppTypeEnum.NON_INTERACTIVE)
+                    .build();
+
+            CreateClientResponseContent createdClient = managementApi.clients().create(request);
+            return createdClient.getClientId()
+                    .orElseThrow(() -> new Auth0ManagementException("Created client did not return a Client ID"));
         } catch (Exception e) {
             log.error("Failed to create Auth0 client: {}", name, e);
             throw new Auth0ManagementException("Failed to create Auth0 client", e);
