@@ -1,64 +1,81 @@
 package org.xamos.rewards.security;
 
-import com.auth0.client.mgmt.ClientsEntity;
-import com.auth0.client.mgmt.ManagementAPI;
-import com.auth0.json.mgmt.client.Client;
-import com.auth0.net.Request;
-import com.auth0.net.Response;
+import com.auth0.client.mgmt.ClientsClient;
+import com.auth0.client.mgmt.ManagementApi;
+import com.auth0.client.mgmt.types.ClientAppTypeEnum;
+import com.auth0.client.mgmt.types.CreateClientRequestContent;
+import com.auth0.client.mgmt.types.CreateClientResponseContent;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.xamos.rewards.exceptions.Auth0ManagementException;
 
+import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class Auth0ManagementServiceTests {
 
     @Mock
-    private ManagementAPI managementApi;
+    private ManagementApi managementApi;
+
+    @Mock
+    private ClientsClient clientsClient;
+
+    @Mock
+    private CreateClientResponseContent responseContent;
 
     @InjectMocks
-    private Auth0ManagementService auth0ManagementService;
+    private Auth0ManagementService service;
 
-    @Test
-    void shouldCreateAuth0ClientSuccessfully() throws Exception {
-        String appName = "Test Application";
-        String generatedClientId = "auth0-id-123";
-
-        ClientsEntity clientsEntity = mock(ClientsEntity.class);
-        Request<Client> createRequest = mock(Request.class);
-        Response<Client> createResponse = mock(Response.class);
-        Client createdClient = mock(Client.class);
-
-        when(managementApi.clients()).thenReturn(clientsEntity);
-        when(clientsEntity.create(any(Client.class))).thenReturn(createRequest);
-        when(createRequest.execute()).thenReturn(createResponse);
-        when(createResponse.getBody()).thenReturn(createdClient);
-        when(createdClient.getClientId()).thenReturn(generatedClientId);
-
-        String result = auth0ManagementService.createClient(appName);
-
-        assertThat(result).isEqualTo(generatedClientId);
-        verify(clientsEntity).create(argThat(client -> 
-            appName.equals(client.getName()) && "non_interactive".equals(client.getAppType())
-        ));
+    @BeforeEach
+    void setUp() {
+        when(managementApi.clients()).thenReturn(clientsClient);
     }
 
     @Test
-    void shouldThrowExceptionWhenCreationFails() throws Exception {
-        when(managementApi.clients()).thenThrow(new RuntimeException("API Error"));
+    void shouldCreateClient() {
+        ArgumentCaptor<CreateClientRequestContent> requestCaptor = 
+                ArgumentCaptor.forClass(CreateClientRequestContent.class);
+        
+        when(clientsClient.create(requestCaptor.capture())).thenReturn(responseContent);
+        when(responseContent.getClientId()).thenReturn(Optional.of("test-client-id"));
 
-        assertThatThrownBy(() -> auth0ManagementService.createClient("Test App"))
+        String clientId = service.createClient("Test App");
+
+        assertThat(clientId).isEqualTo("test-client-id");
+        
+        CreateClientRequestContent capturedRequest = requestCaptor.getValue();
+        assertThat(capturedRequest.getName()).isEqualTo("Test App");
+        assertThat(capturedRequest.getAppType().get()).isEqualTo(ClientAppTypeEnum.NON_INTERACTIVE);
+    }
+
+    @Test
+    void shouldThrowExceptionWhenAuth0Fails() {
+        when(clientsClient.create(any())).thenThrow(new RuntimeException("API Error"));
+
+        assertThatThrownBy(() -> service.createClient("Fail App"))
                 .isInstanceOf(Auth0ManagementException.class)
-                .hasMessage("Failed to create Auth0 client");
+                .hasMessage("Failed to create Auth0 client")
+                .hasCauseInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    void shouldThrowExceptionWhenClientIdIsMissing() {
+        when(clientsClient.create(any())).thenReturn(responseContent);
+        when(responseContent.getClientId()).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.createClient("No ID App"))
+                .isInstanceOf(Auth0ManagementException.class)
+                .hasMessage("Failed to create Auth0 client")
+                .hasCauseInstanceOf(Auth0ManagementException.class);
     }
 }
