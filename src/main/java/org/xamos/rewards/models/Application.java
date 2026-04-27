@@ -1,9 +1,6 @@
 package org.xamos.rewards.models;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -16,10 +13,17 @@ import lombok.NoArgsConstructor;
 public class Application {
 
   @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
   private String name;
 
   @Column(name = "client_id")
   private String clientId;
+
+  @Column(name = "is_active")
+  private boolean isActive;
+
+  @Column(name = "owner_id")
+  private String ownerId;
 }
