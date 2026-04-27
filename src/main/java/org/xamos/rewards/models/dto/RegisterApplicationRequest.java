@@ -6,8 +6,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.xamos.rewards.models.Application;
 
-import java.util.UUID;
-
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -19,10 +17,7 @@ public class RegisterApplicationRequest {
   public Application toApplication() {
     Application application = new Application();
     application.setName(name);
-
-    // TODO: Remove later when we have Auth0 integration
-    application.setClientId(UUID.randomUUID().toString());
-
+    application.setActive(false);
     return application;
   }
 }

@@ -33,21 +33,27 @@ public class ApplicationService {
             .orElseThrow(() -> new ApplicationClientIdNotFoundException(clientId));
   }
 
-  public Application registerApplication(Application application) {
+  public Application registerApplication(Application application, String ownerId) {
     String clientId = auth0ManagementService.createClient(application.getName());
     application.setClientId(clientId);
+    application.setOwnerId(ownerId);
+    application.setActive(false);
     return applicationRepository.save(application);
   }
 
-  public void deleteApplication(Long id) {
-    applicationRepository.deleteById(id);
-  }
-
   @Transactional
-  public Application updateApplication(Long id, String name) {
+  public Application updateApplication(Long id, String name, Boolean isActive) {
     Application app = applicationRepository.findById(id)
             .orElseThrow(() -> new ApplicationIdNotFoundException(id));
     app.setName(name);
+    app.setActive(isActive);
     return applicationRepository.save(app);
+  }
+
+  public void deleteApplication(Long id) {
+    if (!applicationRepository.existsById(id)) {
+      throw new ApplicationIdNotFoundException(id);
+    }
+    applicationRepository.deleteById(id);
   }
 }

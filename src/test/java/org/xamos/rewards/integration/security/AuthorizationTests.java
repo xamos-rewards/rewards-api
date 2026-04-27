@@ -75,9 +75,11 @@ public class AuthorizationTests {
     }
 
     private void mockJwt(String sub, String azp) {
+        String context = (azp != null) ? "user" : "application";
         Jwt.Builder builder = Jwt.withTokenValue("token")
                 .header("alg", "none")
                 .subject(sub)
+                .claim("https://api.xamos.org/identity_context", context)
                 .issuedAt(Instant.now())
                 .expiresAt(Instant.now().plusSeconds(3600));
         

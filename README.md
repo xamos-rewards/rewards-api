@@ -12,25 +12,31 @@ A centralized platform for managing and tracking employee reward points across m
 
 ## Security Model: Composite Identity Authentication
 
-The system implements a robust Composite Identity model. Sensitive operations require two valid identities proven within a single JWT:
+The system implements a robust Composite Identity model carried within standard Auth0 JWTs. Authorization is determined by combining the identity of the user and the application:
 
-1.  **User Identity (sub)**: Validates the human actor performing the action.
-2.  **Application Identity (azp)**: Validates that the request originates from a registered and trusted 3rd-party application.
+1.  **Identity Context**: Injected via Auth0 Actions, identifying the caller as a `user` or `application`.
+2.  **User Identity (sub)**: The human actor initiating the request.
+3.  **Application Identity (azp)**: The registered application facilitating the request.
 
-The Rewards API extracts these claims and verifies them against a local metadata store. If an application is not registered locally, the request is rejected even if the JWT is cryptographically valid.
+The system enforces **Graceful Capability Reduction**:
+- Requests with a valid User + Active Application context have full mutation capabilities.
+- Requests with User context but no `azp` (direct login) are restricted to self-management.
+- Application-only (M2M) requests are restricted to administrative and metadata tasks.
+
+All reward mutations utilize **Implicit Self-Targeting**, where the target account is derived solely from the `sub` claim of the verified principal.
 
 ## Auth0 Management Integration
 
-The system includes a self-service registration flow for developer teams:
-- **Dynamic Client Registration**: Automated creation of Auth0 Clients via the Management SDK.
-- **AOP Interception**: An Aspect-oriented interceptor transparently handles Management API token validity.
+The system leverages the **Auth0 SDK v3.4.0** for dynamic application lifecycle management:
+- **Automated Client Registration**: Creates Auth0 Clients and manages metadata.
+- **Virtual Thread Optimized**: Utilizes an OkHttp-based networking stack with custom Virtual Thread dispatchers for high-throughput management tasks.
 
 ## Getting Started
 
 ### Prerequisites
 - Java 25 JDK
 - Docker (for local PostgreSQL via Compose)
-- Auth0 Tenant and Management API credentials
+- Auth0 Tenant with `identity_context` claims configured in Actions
 
 ### Running the API
 ```bash
@@ -38,14 +44,6 @@ cd rewards-api
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ```
 The API will be available at http://localhost:10000.
-
-### Configuration
-The following environment variables are required for full functionality:
-- AUTH0_ISSUER_URI: Your Auth0 domain issuer.
-- AUTH0_AUDIENCE: The API identifier.
-- AUTH0_MANAGEMENT_CLIENT_ID: Client ID for the Management API.
-- AUTH0_MANAGEMENT_CLIENT_SECRET: Client Secret for the Management API.
-- AUTH0_MANAGEMENT_AUDIENCE: The Management API audience (usually https://[domain]/api/v2/).
 
 ## Testing
 

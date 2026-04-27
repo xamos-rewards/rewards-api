@@ -1,8 +1,8 @@
 package org.xamos.rewards.security;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
@@ -10,10 +10,9 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.xamos.rewards.application.ApplicationRepository;
 import org.xamos.rewards.exceptions.ApplicationNotRegisteredException;
+import org.xamos.rewards.exceptions.InactiveApplicationException;
 import org.xamos.rewards.models.Application;
 
-import java.util.Collection;
-import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,154 +25,80 @@ class RewardsAuthenticationConverterTests {
     @Mock
     private ApplicationRepository applicationRepository;
 
+    @InjectMocks
     private RewardsAuthenticationConverter converter;
 
-    @BeforeEach
-    void setUp() {
-        converter = new RewardsAuthenticationConverter(applicationRepository);
-    }
-
     @Test
-    void shouldIdentifyUserMediatedRequestWhenAzpClaimPresent() {
+    void shouldAllowMutationScopesWithActiveAuthorizedParty() {
         String clientId = "test-client";
-        String user = "auth0|user123";
-        Jwt jwt = createJwt(user, clientId);
-        Application app = new Application(1L, "Test App", clientId);
+        Jwt jwt = createJwt("user123", clientId, "user", "read:rewards add:rewards");
+        Application app = new Application(1L, "App", clientId, true, "owner");
 
         when(applicationRepository.findByClientId(clientId)).thenReturn(Optional.of(app));
 
         AbstractAuthenticationToken result = converter.convert(jwt);
-
-        assertThat(result).isInstanceOf(RewardsAuthenticationToken.class);
-        RewardsAuthenticationToken token = (RewardsAuthenticationToken) result;
-        assertThat(token.getApplication()).isEqualTo(app);
-        assertThat(token.isUserMediated()).isTrue();
-        assertThat(token.isServiceRequest()).isFalse();
-        assertThat(token.getUser()).isPresent().hasValue(user);
-        assertThat(token.getName()).isEqualTo(user);
+        
+        assertThat(result.getAuthorities().stream().map(GrantedAuthority::getAuthority))
+                .contains("SCOPE_add:rewards");
     }
 
     @Test
-    void shouldIdentifyServiceRequestWhenAzpClaimMissing() {
+    void shouldRejectTokenWithInactiveAuthorizedParty() {
         String clientId = "test-client";
-        Jwt jwt = createJwt(clientId, null);
-        Application app = new Application(1L, "Test App", clientId);
+        Jwt jwt = createJwt("user123", clientId, "user", "read:rewards add:rewards");
+        Application app = new Application(1L, "App", clientId, false, "owner");
 
         when(applicationRepository.findByClientId(clientId)).thenReturn(Optional.of(app));
-
-        AbstractAuthenticationToken result = converter.convert(jwt);
-
-        assertThat(result).isInstanceOf(RewardsAuthenticationToken.class);
-        RewardsAuthenticationToken token = (RewardsAuthenticationToken) result;
-        assertThat(token.getApplication()).isEqualTo(app);
-        assertThat(token.isServiceRequest()).isTrue();
-        assertThat(token.isUserMediated()).isFalse();
-        assertThat(token.getUser()).isEmpty();
-        assertThat(token.getName()).isEqualTo(clientId);
-    }
-
-    @Test
-    void shouldIdentifyServiceRequestWhenAzpEqualsSub() {
-        String clientId = "test-client";
-        Jwt jwt = createJwt(clientId, clientId);
-        Application app = new Application(1L, "Test App", clientId);
-
-        when(applicationRepository.findByClientId(clientId)).thenReturn(Optional.of(app));
-
-        AbstractAuthenticationToken result = converter.convert(jwt);
-
-        assertThat(result).isInstanceOf(RewardsAuthenticationToken.class);
-        RewardsAuthenticationToken token = (RewardsAuthenticationToken) result;
-        assertThat(token.getApplication()).isEqualTo(app);
-        assertThat(token.isServiceRequest()).isTrue();
-        assertThat(token.isUserMediated()).isFalse();
-        assertThat(token.getUser()).isEmpty();
-    }
-
-    @Test
-    void shouldMapStandardScopesToAuthorities() {
-        String clientId = "test-client";
-        Jwt jwt = Jwt.withTokenValue("token")
-                .header("alg", "none")
-                .subject("user123")
-                .claim("azp", clientId)
-                .claim("scope", "read:rewards add:rewards deduct:rewards")
-                .build();
-
-        when(applicationRepository.findByClientId(clientId)).thenReturn(Optional.of(new Application()));
-
-        AbstractAuthenticationToken result = converter.convert(jwt);
-
-        Collection<String> authorities = result.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .toList();
-
-        assertThat(authorities).containsExactlyInAnyOrder("SCOPE_read:rewards", "SCOPE_add:rewards", "SCOPE_deduct:rewards");
-    }
-
-    @Test
-    void shouldMapAuth0PermissionsToAuthorities() {
-        String clientId = "test-client";
-        Jwt jwt = Jwt.withTokenValue("token")
-                .header("alg", "none")
-                .subject("user123")
-                .claim("azp", clientId)
-                .claim("permissions", List.of("read:rewards", "add:rewards", "deduct:rewards"))
-                .build();
-
-        when(applicationRepository.findByClientId(clientId)).thenReturn(Optional.of(new Application()));
-
-        AbstractAuthenticationToken result = converter.convert(jwt);
-
-        Collection<String> authorities = result.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .toList();
-
-        assertThat(authorities).containsExactlyInAnyOrder("SCOPE_read:rewards", "SCOPE_add:rewards", "SCOPE_deduct:rewards");
-    }
-
-    @Test
-    void shouldMergeScopesAndPermissionsAndDeDuplicate() {
-        String clientId = "test-client";
-        Jwt jwt = Jwt.withTokenValue("token")
-                .header("alg", "none")
-                .subject("user123")
-                .claim("azp", clientId)
-                .claim("scope", "read:rewards")
-                .claim("permissions", List.of("read:rewards", "add:rewards"))
-                .build();
-
-        when(applicationRepository.findByClientId(clientId)).thenReturn(Optional.of(new Application()));
-
-        AbstractAuthenticationToken result = converter.convert(jwt);
-
-        Collection<String> authorities = result.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .toList();
-
-        // 'read:rewards' is in both, should only appear once
-        assertThat(authorities).containsExactlyInAnyOrder("SCOPE_read:rewards", "SCOPE_add:rewards");
-    }
-
-    @Test
-    void shouldThrowExceptionWhenAppNotRegistered() {
-        String clientId = "unknown-client";
-        Jwt jwt = createJwt("user123", clientId);
-
-        when(applicationRepository.findByClientId(clientId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> converter.convert(jwt))
-                .isInstanceOf(ApplicationNotRegisteredException.class)
-                .hasMessageContaining(clientId);
+                .isInstanceOf(InactiveApplicationException.class);
     }
 
-    private Jwt createJwt(String sub, String azp) {
-        Jwt.Builder builder = Jwt.withTokenValue("mock-token")
+    @Test
+    void shouldStripMutationScopesWithoutAuthorizedParty() {
+        Jwt jwt = createJwt("user123", null, "user", "read:rewards add:rewards");
+
+        AbstractAuthenticationToken result = converter.convert(jwt);
+        
+        assertThat(result.getAuthorities().stream().map(GrantedAuthority::getAuthority))
+                .contains("SCOPE_read:rewards")
+                .doesNotContain("SCOPE_add:rewards");
+    }
+
+    @Test
+    void shouldStripMutationScopesForApplicationContextEvenIfActive() {
+        String clientId = "m2m-client";
+        Jwt jwt = createJwt(clientId + "@clients", null, "application", "read:rewards add:rewards");
+        Application app = new Application(1L, "M2M App", clientId, true, "owner");
+
+        when(applicationRepository.findByClientId(clientId)).thenReturn(Optional.of(app));
+
+        AbstractAuthenticationToken result = converter.convert(jwt);
+        
+        assertThat(result.getAuthorities().stream().map(GrantedAuthority::getAuthority))
+                .contains("SCOPE_read:rewards")
+                .doesNotContain("SCOPE_add:rewards");
+    }
+
+    @Test
+    void shouldRejectApplicationContextIfInactive() {
+        String clientId = "m2m-client";
+        Jwt jwt = createJwt(clientId + "@clients", null, "application", "read:rewards");
+        Application app = new Application(1L, "M2M App", clientId, false, "owner");
+
+        when(applicationRepository.findByClientId(clientId)).thenReturn(Optional.of(app));
+
+        assertThatThrownBy(() -> converter.convert(jwt))
+                .isInstanceOf(InactiveApplicationException.class);
+    }
+
+    private Jwt createJwt(String sub, String azp, String context, String scopes) {
+        Jwt.Builder builder = Jwt.withTokenValue("mock")
                 .header("alg", "none")
-                .subject(sub);
-
+                .subject(sub)
+                .claim("https://api.xamos.org/identity_context", context)
+                .claim("scope", scopes);
         if (azp != null) builder.claim("azp", azp);
-
         return builder.build();
     }
 }

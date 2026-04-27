@@ -6,9 +6,10 @@ import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.xamos.rewards.models.Application;
 import org.xamos.rewards.models.dto.RegisterApplicationRequest;
 import org.xamos.rewards.models.dto.UpdateApplicationRequest;
@@ -30,10 +31,10 @@ public class ApplicationController {
   }
 
   @GetMapping("/{id}")
-  public ResponseEntity<Application> getApplicationById(@Valid @Positive @PathVariable Long id) {
+  public ResponseEntity<Application> getApplication(@Valid @Positive @PathVariable Long id) {
     return ResponseEntity.ok(applicationService.getApplicationById(id));
   }
-
+  
   @GetMapping("/client/{clientId}")
   public ResponseEntity<Application> getApplicationByClientId(@Valid @NotBlank @PathVariable String clientId) {
     return ResponseEntity.ok(applicationService.getApplicationByClientId(clientId));
@@ -41,13 +42,13 @@ public class ApplicationController {
 
   @PostMapping
   @PreAuthorize("hasAuthority('SCOPE_create:application')")
-  public ResponseEntity<Application> registerApplication(@Valid @RequestBody RegisterApplicationRequest request) {
-    return ResponseEntity.ok(applicationService.registerApplication(request.toApplication()));
+  public ResponseEntity<Application> registerApplication(Authentication auth, @Valid @RequestBody RegisterApplicationRequest request) {
+    return ResponseEntity.ok(applicationService.registerApplication(request.toApplication(), auth.getName()));
   }
 
   @PutMapping
   public ResponseEntity<Application> updateApplication(@Valid @RequestBody UpdateApplicationRequest request) {
-    return ResponseEntity.ok(applicationService.updateApplication(request.getId(), request.getName()));
+    return ResponseEntity.ok(applicationService.updateApplication(request.getId(), request.getName(), request.getIsActive()));
   }
 
   @DeleteMapping("/{id}")

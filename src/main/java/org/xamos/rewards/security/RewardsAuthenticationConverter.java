@@ -10,13 +10,10 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtGra
 import org.springframework.stereotype.Component;
 import org.xamos.rewards.application.ApplicationRepository;
 import org.xamos.rewards.exceptions.ApplicationNotRegisteredException;
+import org.xamos.rewards.exceptions.InactiveApplicationException;
 import org.xamos.rewards.models.Application;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Component
@@ -28,36 +25,42 @@ public class RewardsAuthenticationConverter implements Converter<Jwt, AbstractAu
 
     @Override
     public AbstractAuthenticationToken convert(Jwt jwt) {
-
-        Set<GrantedAuthority> authorities = new HashSet<>();
-        
-        Collection<GrantedAuthority> standardScopes = jwtGrantedAuthoritiesConverter.convert(jwt);
-        if (standardScopes != null) {
-            authorities.addAll(standardScopes);
-        }
-
+        Set<GrantedAuthority> authorities = new HashSet<>(jwtGrantedAuthoritiesConverter.convert(jwt));
         authorities.addAll(extractPermissions(jwt));
 
+        String context = jwt.getClaimAsString("https://api.xamos.org/identity_context");
         String azp = jwt.getClaimAsString("azp");
         String sub = jwt.getSubject();
-        String clientId;
-        boolean userMediated;
 
-        if (azp != null && !azp.isBlank()) {
-            clientId = azp;
-            userMediated = !azp.equals(sub);
+        Application application = null;
+        boolean userContext = "user".equals(context);
+
+        if (!userContext) {
+            String clientId = sub.contains("@clients") ? sub.substring(0, sub.indexOf("@clients")) : sub;
+            application = applicationRepository.findByClientId(clientId)
+                    .orElseThrow(() -> new ApplicationNotRegisteredException(clientId));
+
+            stripMutationScopes(authorities);
+        } else if (azp != null) {
+            application = applicationRepository.findByClientId(azp)
+                    .orElseThrow(() -> new ApplicationNotRegisteredException(azp));
         } else {
-            clientId = sub;
-            userMediated = false;
+            stripMutationScopes(authorities);
         }
 
-        Application application = applicationRepository.findByClientId(clientId)
-                .orElseThrow(() -> new ApplicationNotRegisteredException(clientId));
+        if (application != null && !application.isActive()) {
+            throw new InactiveApplicationException(application.getClientId());
+        }
 
-        return new RewardsAuthenticationToken(jwt, authorities, application, userMediated);
+        return new RewardsAuthenticationToken(jwt, authorities, application, userContext);
     }
 
-    private List<SimpleGrantedAuthority> extractPermissions(Jwt jwt) {
+    private void stripMutationScopes(Set<GrantedAuthority> authorities) {
+        authorities.removeIf(auth -> auth.getAuthority().startsWith("SCOPE_add:rewards") || 
+                                     auth.getAuthority().startsWith("SCOPE_deduct:rewards"));
+    }
+
+    private Collection<GrantedAuthority> extractPermissions(Jwt jwt) {
         List<String> permissions = jwt.getClaim("permissions");
         if (permissions == null || permissions.isEmpty()) {
             return Collections.emptyList();

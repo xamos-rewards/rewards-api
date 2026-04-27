@@ -26,23 +26,22 @@ class ApplicationServiceTests {
     private ApplicationService applicationService;
 
     @Test
-    void registerApplicationShouldCreateAuth0ClientAndSaveLocally() {
+    void registerApplicationShouldCreateAuth0Client() {
         String appName = "New App";
+        String ownerId = "auth0|owner";
         String generatedClientId = "auth0-client-123";
         
         when(auth0ManagementService.createClient(appName)).thenReturn(generatedClientId);
+        when(applicationRepository.save(any(Application.class))).thenAnswer(i -> i.getArgument(0));
 
-        when(applicationRepository.save(any(Application.class))).thenAnswer(invocation -> {
-            Application app = invocation.getArgument(0);
-            app.setId(1L);
-            return app;
-        });
-
-        Application result = applicationService.registerApplication(new Application(null, appName, null));
+        Application app = new Application();
+        app.setName(appName);
+        Application result = applicationService.registerApplication(app, ownerId);
 
         assertThat(result.getClientId()).isEqualTo(generatedClientId);
-        assertThat(result.getName()).isEqualTo(appName);
-        
+        assertThat(result.getOwnerId()).isEqualTo(ownerId);
+        assertThat(result.isActive()).isFalse();
+
         verify(auth0ManagementService).createClient(appName);
         verify(applicationRepository).save(any(Application.class));
     }

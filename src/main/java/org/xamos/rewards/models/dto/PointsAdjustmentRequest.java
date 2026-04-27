@@ -1,6 +1,5 @@
 package org.xamos.rewards.models.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
@@ -16,9 +15,6 @@ public class PointsAdjustmentRequest {
     ADD,
     DEDUCT
   }
-
-  @NotBlank
-  private String username;
 
   @Positive
   private Long points;
